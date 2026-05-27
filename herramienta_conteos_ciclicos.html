@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1366">
+<title>Criticidad de Conteos Cíclicos | Herramienta APICS/CPIM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#F5F6F8;color:#111827;font-size:12px}
+.wrap{max-width:1340px;margin:0 auto;padding:0 16px 24px}
+
+/* HEADER */
+.hdr{background:#1A2B4A;color:#fff;padding:8px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr h1{font-size:16px;font-weight:700}.hdr .sub{font-size:10px;color:#9CA3AF;margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.badge-apics{background:#0066CC;color:#fff;font-size:8px;font-weight:700;padding:2px 7px;letter-spacing:.06em}
+#btn-excel,#btn-pdf,#btn-reset{border:none;cursor:pointer;font-size:10px;font-weight:700;padding:5px 12px;letter-spacing:.04em;display:none}
+#btn-excel{background:#007A3D;color:#fff}
+#btn-pdf{background:#CC0000;color:#fff}
+#btn-reset{background:#5A6475;color:#fff}
+#btn-excel:hover{background:#005c2e}
+#btn-pdf:hover{background:#a30000}
+#btn-reset:hover{background:#3d4654}
+
+/* UPLOAD ZONE */
+#upload-section{padding:20px 0}
+.upload-title{font-size:14px;font-weight:700;color:#1A2B4A;margin-bottom:6px}
+.upload-sub{font-size:11px;color:#5A6475;margin-bottom:20px}
+.upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.drop-zone{background:#fff;border:2px dashed #D1D5DB;padding:20px 16px;text-align:center;cursor:pointer;transition:border-color .2s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#0066CC;background:#EEF4FB}
+.drop-zone.loaded{border-color:#007A3D;border-style:solid;background:#F0FBF4}
+.drop-zone.loaded .dz-icon{color:#007A3D}
+.dz-num{font-size:24px;font-weight:700;color:#D1D5DB;margin-bottom:6px}
+.dz-icon{font-size:28px;margin-bottom:6px;color:#9CA3AF}
+.dz-label{font-size:11px;font-weight:700;color:#1A2B4A;margin-bottom:4px}
+.dz-sublabel{font-size:10px;color:#6B7280;margin-bottom:10px}
+.dz-filename{font-size:10px;color:#007A3D;font-weight:600;word-break:break-all;min-height:14px}
+.dz-btn{background:#1A2B4A;color:#fff;border:none;font-size:10px;font-weight:600;padding:5px 14px;cursor:pointer;margin-top:8px}
+.dz-btn:hover{background:#0066CC}
+input[type=file]{display:none}
+.inv-name-input{width:100%;border:1px solid #D1D5DB;padding:4px 8px;font-size:10px;margin-top:8px;color:#111827}
+.inv-name-input::placeholder{color:#9CA3AF}
+
+/* PROGRESS / STATUS */
+#status-bar{display:none;background:#fff;border:1px solid #D1D5DB;border-left:4px solid #0066CC;padding:10px 16px;margin-bottom:16px}
+#status-msg{font-size:11px;color:#1A2B4A;font-weight:600}
+.progress-track{background:#D1D5DB;height:4px;margin-top:6px}
+.progress-fill{background:#0066CC;height:4px;width:0%;transition:width .3s}
+
+/* TABS */
+#results{display:none}
+.tabs{display:flex;background:#fff;border-bottom:2px solid #D1D5DB;margin-bottom:14px;overflow-x:auto}
+.tab{padding:8px 14px;font-size:10px;font-weight:700;color:#5A6475;cursor:pointer;border-bottom:3px solid transparent;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.tab.active{color:#0066CC;border-bottom:3px solid #0066CC}
+.tab:hover{color:#0066CC}
+.tab-content{display:none}.tab-content.active{display:block}
+
+/* KPI STRIP */
+.kpi-strip{display:flex;gap:10px;margin:12px 0}
+.kpi{background:#fff;border:1px solid #D1D5DB;border-left:4px solid #0066CC;padding:8px 14px;flex:1;min-width:0}
+.kpi.r{border-left-color:#CC0000}.kpi.w{border-left-color:#E07B00}.kpi.g{border-left-color:#007A3D}
+.kpi-lbl{font-size:9px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.kpi-val{font-size:19px;font-weight:700;color:#111827;line-height:1}
+.kpi-d{font-size:10px;margin-top:3px}.kpi-d.neg{color:#CC0000}.kpi-d.pos{color:#007A3D}.kpi-d.neu{color:#5A6475}
+
+/* TABLES */
+.sec{font-size:11px;font-weight:700;color:#1A2B4A;text-transform:uppercase;letter-spacing:.07em;border-left:4px solid #0066CC;padding-left:8px;margin:14px 0 8px}
+.tbl-wrap{overflow:auto;max-height:440px}
+.tbl-wrap table thead th{position:sticky;top:0;z-index:2}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#1A2B4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:5px 7px;text-align:left;cursor:pointer;white-space:nowrap;user-select:none}
+th:hover{background:#0066CC}
+td{padding:4px 7px;border-bottom:1px solid #D1D5DB;vertical-align:middle}
+tr:nth-child(even) td{background:#F9FAFB}
+tr:hover td{background:#EEF4FB}
+.card{background:#fff;border:1px solid #D1D5DB;padding:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
+
+/* BADGES */
+.ba{background:#CC0000;color:#fff;font-size:8px;font-weight:700;padding:1px 5px}
+.bb{background:#E07B00;color:#fff;font-size:8px;font-weight:700;padding:1px 5px}
+.bc{background:#0066CC;color:#fff;font-size:8px;font-weight:700;padding:1px 5px}
+.bd{background:#5A6475;color:#fff;font-size:8px;font-weight:700;padding:1px 5px}
+.br{background:#CC0000;color:#fff;font-size:8px;font-weight:700;padding:1px 5px}
+
+.neg{color:#CC0000;font-weight:600}.pos{color:#007A3D;font-weight:600}
+.score-bg{background:#D1D5DB;width:70px;height:5px;display:inline-block;vertical-align:middle}
+.score-fg{height:5px;display:inline-block}
+
+/* SCHEMA TAB */
+.schema-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
+.schema-table th{background:#1A2B4A;color:#fff;padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+.schema-table td{padding:5px 10px;border-bottom:1px solid #D1D5DB;vertical-align:top}
+.schema-table tr:nth-child(even) td{background:#F5F6F8}
+.req{color:#CC0000;font-weight:700;font-size:9px}
+.opt{color:#E07B00;font-weight:700;font-size:9px}
+.dl-btn{background:#1A2B4A;color:#fff;border:none;font-size:10px;font-weight:700;padding:6px 14px;cursor:pointer;text-decoration:none;display:inline-block;margin-top:6px}
+.dl-btn:hover{background:#0066CC}
+.schema-note{background:#fff;border:1px solid #D1D5DB;border-left:4px solid #E07B00;padding:10px 14px;font-size:11px;color:#5A6475;margin-bottom:14px;line-height:1.6}
+
+/* RECOMMENDATIONS */
+.rec-list{list-style:none}
+.rec-list li{padding:8px 12px;margin-bottom:6px;font-size:11px;line-height:1.5;border-left:4px solid #D1D5DB;background:#fff}
+.rec-list li.urg{border-left-color:#CC0000}
+.rec-list li.wat{border-left-color:#E07B00}
+.rec-list li.opp{border-left-color:#007A3D}
+
+/* PLAN */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.plan-card{background:#fff;border:1px solid #D1D5DB;border-top:3px solid #0066CC;padding:10px 12px}
+.plan-card.p60{border-top-color:#E07B00}.plan-card.p90{border-top-color:#007A3D}
+.plan-card h3{font-size:10px;font-weight:700;color:#1A2B4A;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.plan-card ul{list-style:none}
+.plan-card li{font-size:10px;color:#5A6475;padding:3px 0;border-bottom:1px solid #D1D5DB;line-height:1.4}
+.plan-card li:last-child{border-bottom:none}
+.plan-card li::before{content:"→ "}
+
+/* DATA QUALITY */
+details.dq{background:#fff;border:1px solid #D1D5DB;margin-top:14px}
+details.dq summary{padding:7px 12px;font-size:10px;font-weight:600;color:#1A2B4A;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between}
+.dq-badge{font-size:9px;font-weight:700;padding:2px 6px}
+
+/* FOOTER */
+footer{background:#1A2B4A;color:#9CA3AF;font-size:10px;padding:8px 18px;margin-top:16px;display:flex;justify-content:space-between;align-items:center}
+#footer-scope{color:#D1D5DB}
+
+/* INDICATORS */
+.ind-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}
+.ind-card{background:#fff;border:1px solid #D1D5DB;padding:8px 10px;text-align:center}
+.ind-card .in{font-size:9px;color:#6B7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.ind-card .iv{font-size:14px;font-weight:700;color:#1A2B4A}
+.ind-card .id{font-size:9px;color:#5A6475;margin-top:2px}
+
+/* PRINT */
+@media print{
+  @page{size:A4 landscape;margin:8mm 10mm}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #upload-section,.tabs,.hdr,.hdr *,footer,#btn-excel,#btn-pdf,#btn-reset{display:none!important}
+  #results{display:block!important}
+  .tab-content{display:block!important}
+  .tbl-wrap{max-height:none;overflow:visible}
+  .tab-content+.tab-content{page-break-before:always}
+  .card,table,details.dq{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <h1>📦 Criticidad de Conteos Cíclicos <span class="badge-apics">APICS / CPIM</span></h1>
+    <div class="sub" id="hdr-sub">Carga tus 3 archivos CSV para generar el análisis · Herramienta dinámica y reutilizable</div>
+  </div>
+  <div class="hdr-right">
+    <button id="btn-excel" onclick="downloadExcel()">⬇ Excel Top 100</button>
+    <button id="btn-pdf" onclick="downloadPDF()">🖨 PDF Reporte</button>
+    <button id="btn-reset" onclick="resetTool()">↩ Nueva Carga</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ======= UPLOAD SECTION ======= -->
+<div id="upload-section">
+  <div style="margin-top:16px">
+    <div class="upload-title">Carga los 3 archivos CSV para iniciar el análisis</div>
+    <div class="upload-sub">Arrastra y suelta cada archivo en su zona correspondiente, o haz clic en "Seleccionar". El análisis inicia automáticamente cuando los 3 archivos estén cargados.</div>
+  </div>
+
+  <div class="upload-grid">
+    <!-- FILE 1: STOCK -->
+    <div class="drop-zone" id="dz1" ondrop="handleDrop(event,1)" ondragover="handleDragOver(event,1)" ondragleave="handleDragLeave(1)">
+      <div class="dz-num">1</div>
+      <div class="dz-icon">🗄️</div>
+      <div class="dz-label">Stock Actual</div>
+      <div class="dz-sublabel">Existencias vigentes del sistema</div>
+      <div class="dz-filename" id="fn1">Sin archivo</div>
+      <button class="dz-btn" onclick="document.getElementById('fi1').click()">Seleccionar CSV</button>
+      <input type="file" id="fi1" accept=".csv" onchange="handleFile(this.files[0],1)">
+    </div>
+
+    <!-- FILE 2: INV ANTERIOR -->
+    <div class="drop-zone" id="dz2" ondrop="handleDrop(event,2)" ondragover="handleDragOver(event,2)" ondragleave="handleDragLeave(2)">
+      <div class="dz-num">2</div>
+      <div class="dz-icon">📋</div>
+      <div class="dz-label">Inventario Anterior</div>
+      <div class="dz-sublabel">El inventario más antiguo (base comparativa)</div>
+      <input class="inv-name-input" id="name2" type="text" placeholder="Nombre ej: Septiembre 2025" value="">
+      <div class="dz-filename" id="fn2">Sin archivo</div>
+      <button class="dz-btn" onclick="document.getElementById('fi2').click()">Seleccionar CSV</button>
+      <input type="file" id="fi2" accept=".csv" onchange="handleFile(this.files[0],2)">
+    </div>
+
+    <!-- FILE 3: INV RECIENTE -->
+    <div class="drop-zone" id="dz3" ondrop="handleDrop(event,3)" ondragover="handleDragOver(event,3)" ondragleave="handleDragLeave(3)">
+      <div class="dz-num">3</div>
+      <div class="dz-icon">📊</div>
+      <div class="dz-label">Inventario Reciente</div>
+      <div class="dz-sublabel">El inventario más nuevo (resultado principal)</div>
+      <input class="inv-name-input" id="name3" type="text" placeholder="Nombre ej: Mayo 2026" value="">
+      <div class="dz-filename" id="fn3">Sin archivo</div>
+      <button class="dz-btn" onclick="document.getElementById('fi3').click()">Seleccionar CSV</button>
+      <input type="file" id="fi3" accept=".csv" onchange="handleFile(this.files[0],3)">
+    </div>
+  </div>
+
+  <!-- SCHEMA QUICK REF -->
+  <div class="card">
+    <div class="sec" style="margin-top:0">Estructura mínima requerida por archivo (ver pestaña "Estructura CSV" para detalle completo)</div>
+    <div class="row3" style="margin-bottom:0;gap:10px">
+      <div style="font-size:10px;color:#5A6475;line-height:1.8">
+        <strong style="color:#1A2B4A">1. Stock Actual</strong><br>
+        <code>Codigo</code> · <code>Descripcion</code> · <code>En_Stock</code> · <code>Costo_Unitario</code>
+      </div>
+      <div style="font-size:10px;color:#5A6475;line-height:1.8">
+        <strong style="color:#1A2B4A">2 y 3. Inventarios</strong><br>
+        <code>Codigo</code> · <code>Diferencia</code> · <code>Costo_Unitario</code> · <code>Importe_Diferencia</code> · <code>Aclaracion</code>
+      </div>
+      <div style="font-size:10px;color:#5A6475;line-height:1.8">
+        <strong style="color:#1A2B4A">Nombres alternativos aceptados</strong><br>
+        La herramienta detecta automáticamente columnas en español, inglés y variaciones de acento.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <div id="status-msg">Procesando archivos...</div>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+</div>
+
+<!-- ======= RESULTS ======= -->
+<div id="results">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('resumen',this)">📊 Resumen</div>
+    <div class="tab" onclick="showTab('top100',this)">🎯 Top 100 Críticos</div>
+    <div class="tab" onclick="showTab('matriz',this)">📋 Matriz Conteo</div>
+    <div class="tab" onclick="showTab('comparativo',this)">🔄 Comparativo</div>
+    <div class="tab" onclick="showTab('financiero',this)">💰 Financiero</div>
+    <div class="tab" onclick="showTab('recomendaciones',this)">✅ Recomendaciones</div>
+    <div class="tab" onclick="showTab('schema',this)">📁 Estructura CSV</div>
+  </div>
+
+  <!-- TAB: RESUMEN -->
+  <div class="tab-content active" id="tab-resumen">
+    <div class="kpi-strip" id="kpi-strip"></div>
+    <div class="row2">
+      <div class="card" id="chart-causa"></div>
+      <div class="card" id="chart-dist"></div>
+    </div>
+    <div class="sec">Top 20 – Resumen ejecutivo <span style="font-size:9px;font-weight:400;text-transform:none;letter-spacing:0;color:#5A6475">(ver Top 100 completo en siguiente pestaña)</span></div>
+    <div class="tbl-wrap"><table id="tbl-resumen"><thead><tr>
+      <th>#</th><th>SKU</th><th>Descripción</th><th>Criticidad</th><th>Score</th>
+      <th>Dif.Ant</th><th>Dif.Rec</th><th>Variación</th><th>Pzas Falt.</th>
+      <th>Impacto $</th><th>Reinc.</th><th>Frecuencia</th>
+    </tr></thead><tbody id="tbody-resumen"></tbody></table></div>
+    <div class="ind-grid" id="ind-grid"></div>
+    <details class="dq" id="dq-panel"><summary>📊 Calidad de Datos <span class="dq-badge" id="dq-badge">—</span></summary><div id="dq-body"></div></details>
+  </div>
+
+  <!-- TAB: TOP 100 -->
+  <div class="tab-content" id="tab-top100">
+    <div class="kpi-strip" id="kpi-strip2"></div>
+    <div class="sec">Top 100 Códigos de Alta Criticidad – Tabla ordenable por columna</div>
+    <div class="tbl-wrap"><table id="tbl-top100"><thead><tr>
+      <th data-s>#</th><th data-s>SKU</th><th>Descripción</th><th data-s>Stock</th>
+      <th data-s>Dif.Ant.</th><th data-s>Dif.Rec.</th><th data-s>Variación</th>
+      <th data-s>Pzas Falt.</th><th data-s>Costo $</th><th data-s>Impacto $</th>
+      <th data-s>Reinc.</th><th data-s>Score</th><th>Criticidad</th><th>Frecuencia</th>
+      <th>Responsable</th><th>Causa Raíz</th>
+    </tr></thead><tbody id="tbody-top100"></tbody></table></div>
+  </div>
+
+  <!-- TAB: MATRIZ -->
+  <div class="tab-content" id="tab-matriz">
+    <div class="sec">Matriz de Conteo Cíclico – Programa Sugerido</div>
+    <div class="tbl-wrap"><table id="tbl-matriz"><thead><tr>
+      <th>#</th><th>SKU</th><th>Descripción</th><th>Nivel</th><th>Frecuencia</th>
+      <th>Responsable</th><th>Prioridad Arranque</th><th>Causa Raíz</th><th>Justificación</th>
+    </tr></thead><tbody id="tbody-matriz"></tbody></table></div>
+    <div class="row3" id="freq-summary" style="margin-top:14px"></div>
+  </div>
+
+  <!-- TAB: COMPARATIVO -->
+  <div class="tab-content" id="tab-comparativo">
+    <div class="kpi-strip" id="kpi-strip3"></div>
+    <div class="row2">
+      <div>
+        <div class="sec">⚠ Reincidentes (faltante en AMBOS inventarios)</div>
+        <div class="tbl-wrap" style="max-height:260px"><table><thead><tr>
+          <th>SKU</th><th>Descripción</th><th>Dif.Ant.</th><th>Dif.Rec.</th><th>Variación</th><th>Impacto $</th>
+        </tr></thead><tbody id="tbody-reinc"></tbody></table></div>
+      </div>
+      <div>
+        <div class="sec">📉 Empeoraron vs inventario anterior</div>
+        <div class="tbl-wrap" style="max-height:260px"><table><thead><tr>
+          <th>SKU</th><th>Descripción</th><th>Dif.Ant.</th><th>Dif.Rec.</th><th>Variación</th>
+        </tr></thead><tbody id="tbody-empeo"></tbody></table></div>
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <div class="sec">🆕 Nuevos faltantes (solo en inventario reciente)</div>
+        <div class="tbl-wrap" style="max-height:220px"><table><thead><tr>
+          <th>SKU</th><th>Descripción</th><th>Dif.Rec.</th><th>Impacto $</th>
+        </tr></thead><tbody id="tbody-nuevos"></tbody></table></div>
+      </div>
+      <div>
+        <div class="sec">✅ Mejoraron – faltante anterior resuelto</div>
+        <div class="tbl-wrap" style="max-height:220px"><table><thead><tr>
+          <th>SKU</th><th>Descripción</th><th>Dif.Ant.</th><th>Dif.Rec.</th>
+        </tr></thead><tbody id="tbody-mejora"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: FINANCIERO -->
+  <div class="tab-content" id="tab-financiero">
+    <div class="kpi-strip" id="kpi-strip4"></div>
+    <div class="sec">Pareto de Impacto Financiero – Barras + % Acumulado</div>
+    <div class="card"><svg id="pareto-svg" viewBox="0 0 1200 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:200px"></svg></div>
+    <div class="sec" style="margin-top:12px">Detalle Financiero por SKU</div>
+    <div class="tbl-wrap"><table id="tbl-pareto"><thead><tr>
+      <th>#</th><th>SKU</th><th>Descripción</th><th data-s>Impacto $</th>
+      <th data-s>% del Total</th><th data-s>% Acumulado</th><th>Criticidad</th>
+    </tr></thead><tbody id="tbody-pareto"></tbody></table></div>
+  </div>
+
+  <!-- TAB: RECOMENDACIONES -->
+  <div class="tab-content" id="tab-recomendaciones">
+    <div class="sec">Recomendaciones Operativas – APICS/CPIM</div>
+    <ul class="rec-list" id="rec-list"></ul>
+    <div class="sec" style="margin-top:14px">Plan de Acción 30-60-90 Días</div>
+    <div class="plan-grid">
+      <div class="plan-card"><h3>🔴 Primeros 30 Días</h3><ul>
+        <li>Conteo físico del Top 100 crítico</li>
+        <li>Ajuste SKUs con score máximo</li>
+        <li>Análisis causa raíz de reincidentes</li>
+        <li>Capacitación pick con escaneo</li>
+        <li>Verificar proceso de recibo</li>
+        <li>Doble verificación en surtido</li>
+        <li>Publicar primer reporte exactitud</li>
+      </ul></div>
+      <div class="plan-card p60"><h3>🟡 30-60 Días</h3><ul>
+        <li>Reconteo SKUs A y B según programa</li>
+        <li>Validar efectividad de controles</li>
+        <li>Revisión de ubicaciones críticas</li>
+        <li>Analizar traspasos y devoluciones</li>
+        <li>Estandarizar política de merma</li>
+        <li>Capacitar responsables cíclicos</li>
+        <li>Segundo reporte comparativo</li>
+      </ul></div>
+      <div class="plan-card p90"><h3>🟢 60-90 Días</h3><ul>
+        <li>Validar mejora vs meta definida</li>
+        <li>Ajustar frecuencias por desempeño</li>
+        <li>Implementar gobernanza cíclica</li>
+        <li>Definir KPIs oficiales exactitud</li>
+        <li>Preparar próximo inventario anual</li>
+        <li>Eliminar reincidentes del registro</li>
+        <li>Publicar tablero mensual</li>
+      </ul></div>
+    </div>
+    <div class="row2">
+      <div class="card"><div class="sec" style="margin-top:0">Controles Preventivos</div>
+        <table><tr><td>📌 Proceso de recibo</td><td>Verificar qty vs factura antes de ingresar al sistema</td></tr>
+        <tr><td>📌 Picking con escaneo</td><td>Obligatorio para Top 100; sin excepción</td></tr>
+        <tr><td>📌 Traspasos documentados</td><td>Registrar en tiempo real; no acumular para fin de turno</td></tr>
+        <tr><td>📌 Devoluciones segregadas</td><td>Área dedicada; conteo antes de reingreso</td></tr>
+        <tr><td>📌 Ajustes con evidencia</td><td>Todo ajuste requiere foto + aprobación Jefe</td></tr>
+        <tr><td>📌 Revisión de ubicaciones</td><td>Mapa de almacén actualizado trimestralmente</td></tr></table>
+      </div>
+      <div class="card"><div class="sec" style="margin-top:0">Gobernanza del Programa</div>
+        <table><tr><td>🏛️ Comité mensual</td><td>Revisión exactitud + ajuste frecuencias</td></tr>
+        <tr><td>📊 KPIs publicados</td><td>Exactitud SKU, valor recuperado, % reincidencia</td></tr>
+        <tr><td>🎯 Meta semestral</td><td>Exactitud ≥95% por SKU en inventario siguiente</td></tr>
+        <tr><td>👤 Owner del programa</td><td>Jefe de Almacén / Coordinador de Inventarios</td></tr>
+        <tr><td>📋 Bitácora digital</td><td>Registro de cada conteo cíclico realizado</td></tr>
+        <tr><td>🔄 Ajuste dinámico</td><td>Frecuencia sube/baja según desempeño mensual</td></tr></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SCHEMA -->
+  <div class="tab-content" id="tab-schema">
+    <div class="schema-note">
+      <strong>⚠ Importante:</strong> La herramienta acepta automáticamente los nombres de columna originales de tus archivos actuales (español con acentos, sin acentos, inglés). Si usas el esquema canónico siguiente, el análisis será más preciso y escalable. Las columnas marcadas <span class="req">REQ</span> son obligatorias; las <span class="opt">OPC</span> son opcionales pero enriquecen el análisis.
+    </div>
+
+    <div class="row3">
+      <!-- FILE 1 SCHEMA -->
+      <div>
+        <div class="sec" style="margin-top:0">Archivo 1 – Stock Actual</div>
+        <table class="schema-table">
+          <tr><th>Columna Canónica</th><th>Tipo</th><th>Req.</th></tr>
+          <tr><td><code>Codigo</code></td><td>Texto</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Descripcion</code></td><td>Texto</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>En_Stock</code></td><td>Entero</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Costo_Unitario</code></td><td>Decimal</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Solicitado</code></td><td>Entero</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Almacen</code></td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Familia</code></td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Clasificacion_ABC</code></td><td>A/B/C</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Ubicacion</code></td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+        </table>
+        <a class="dl-btn" id="dl-tpl1" href="#" onclick="downloadTemplate(1)">⬇ Descargar Plantilla CSV</a>
+      </div>
+
+      <!-- FILE 2-3 SCHEMA -->
+      <div style="grid-column:span 2">
+        <div class="sec" style="margin-top:0">Archivos 2 y 3 – Resultado de Inventario (mismo formato)</div>
+        <table class="schema-table">
+          <tr><th>Columna Canónica</th><th>Descripción</th><th>Tipo</th><th>Req.</th></tr>
+          <tr><td><code>Codigo</code></td><td>SKU o código único del artículo</td><td>Texto</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Descripcion</code></td><td>Nombre del artículo</td><td>Texto</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Costo_Unitario</code></td><td>Costo por pieza al momento del inventario</td><td>Decimal</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Diferencia</code></td><td>Diferencia contada (neg=faltante, pos=sobrante)</td><td>Entero</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Importe_Diferencia</code></td><td>Valor monetario de la diferencia</td><td>Decimal</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Aclaracion</code></td><td>Descripción de causa o ajuste realizado</td><td>Texto</td><td><span class="req">REQ</span></td></tr>
+          <tr><td><code>Stock_Sistema</code></td><td>Existencia en sistema al momento del conteo</td><td>Entero</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Diferencia_Auditoria</code></td><td>Diferencia final validada por auditoría</td><td>Entero</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Importe_Auditoria</code></td><td>Importe de la diferencia auditada</td><td>Decimal</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Codigo_Barras</code></td><td>EAN, UPC o código de barras</td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Tipo_Ajuste</code></td><td>Entrada / Salida / Ninguno</td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Ubicacion</code></td><td>Pasillo, rack o zona física</td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+          <tr><td><code>Responsable_Conteo</code></td><td>Nombre del auditor o contador</td><td>Texto</td><td><span class="opt">OPC</span></td></tr>
+        </table>
+        <a class="dl-btn" onclick="downloadTemplate(2)">⬇ Descargar Plantilla Inventario CSV</a>
+      </div>
+    </div>
+
+    <div class="schema-note" style="margin-top:12px">
+      <strong>Nombres alternativos aceptados automáticamente (detección flexible):</strong><br>
+      <strong>Codigo:</strong> SKU, Code, Artículo, Article<br>
+      <strong>Descripcion:</strong> Descripción del artículo, Description, Nombre, Nombre del artículo<br>
+      <strong>Costo_Unitario:</strong> Costo Unitario, Costo por Pieza, Precio, Precio Unitario, Cost<br>
+      <strong>Diferencia:</strong> Diferencias Inv. Gral, Diferencia Final, Diferencia Auditoría, Dif, Diferencia Auditoria<br>
+      <strong>Importe_Diferencia:</strong> Monto, Importe Final, Valor Diferencia, Importe Diferencia<br>
+      <strong>Aclaracion:</strong> Aclaración Final, Observaciones, Notas, Aclaración Inicial, Aclaraciones para Ajustes<br>
+      <strong>Stock_Sistema / En_Stock:</strong> En Stock, Existencia, Qty, Cantidad, Stock Sistema<br>
+    </div>
+  </div>
+
+</div><!-- end results -->
+</div><!-- end wrap -->
+
+<footer>
+  <span id="footer-scope">Carga tus archivos CSV para comenzar el análisis</span>
+  <span>Herramienta de Conteos Cíclicos · APICS/CPIM · v2.0</span>
+</footer>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const state = { files: {1:null, 2:null, 3:null}, parsed: {}, names: {2:'Inventario Anterior', 3:'Inventario Reciente'}, result: null };
+
+// ============================================================
+// COLUMN ALIASES (flexible detection)
+// ============================================================
+const ALIASES = {
+  stock: {
+    codigo:    ['codigo','sku','code','articulo','article','clave'],
+    desc:      ['descripcion','descripcion del articulo','description','nombre','nombre del articulo','descripción del artículo','descripcion del artículo'],
+    en_stock:  ['en stock','en_stock','stock','existencia','qty','cantidad','stock actual','stock sistema'],
+    costo:     ['costo por pieza','costo_unitario','costo unitario','costo','precio','precio unitario','cost'],
+  },
+  inv: {
+    codigo:    ['codigo','sku','code','articulo','clave'],
+    desc:      ['descripcion','descripcion del articulo','description','nombre','descripcion del artículo','descripción del artículo','descripción'],
+    costo:     ['costo unitario','costo_unitario','costo por pieza','costo','precio unitario','cost'],
+    diferencia:['diferencia auditoria','diferencia auditoría','diferencias inv. gral','diferencia final','diferencia','dif','diferencia_auditoria'],
+    imp_dif:   ['importe diferencia','importe_diferencia','monto','importe final','valor diferencia','importe auditoria','importe_auditoria'],
+    stock_sis: ['en stock','stock','stock sistema','existencia sistema','stock_sistema','cantidad'],
+    aclaracion:['aclaracion final','aclaración final','observaciones','aclaracion','aclaración','notas','aclaración inicial','aclaracion inicial','informacion adicional','información adicional'],
+  }
+};
+
+function findCol(headers, type, key) {
+  const aliases = ALIASES[type][key] || [];
+  const norm = s => String(s).toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  for (const alias of aliases) {
+    const na = norm(alias);
+    const exact = headers.find(h => norm(h) === na);
+    if (exact) return exact;
+  }
+  for (const alias of aliases) {
+    const na = norm(alias);
+    const partial = headers.find(h => norm(h).includes(na) || na.includes(norm(h)));
+    if (partial) return partial;
+  }
+  return null;
+}
+
+function parseNum(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).replace(/[$,\s]/g,'').trim();
+  if (s===''||s==='-'||s.toLowerCase()==='n/a'||s.toLowerCase()==='na') return null;
+  const n = parseFloat(s); return isNaN(n) ? null : n;
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function handleDragOver(e,n){e.preventDefault();document.getElementById('dz'+n).classList.add('drag-over')}
+function handleDragLeave(n){document.getElementById('dz'+n).classList.remove('drag-over')}
+function handleDrop(e,n){e.preventDefault();handleDragLeave(n);if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0],n)}
+
+function handleFile(file, n) {
+  if (!file) return;
+  state.files[n] = file;
+  document.getElementById('fn'+n).textContent = file.name;
+  const dz = document.getElementById('dz'+n);
+  dz.classList.remove('drag-over'); dz.classList.add('loaded');
+  dz.querySelector('.dz-icon').textContent = '✅';
+
+  // Auto-extract name from filename for inv files
+  if (n===2||n===3) {
+    const nm = document.getElementById('name'+n);
+    if (!nm.value) {
+      const guess = file.name.replace(/[_.-]/g,' ').replace(/csv$/i,'').replace(/resultado.*inventario.*anual/i,'').trim();
+      nm.value = guess.substring(0,40);
+    }
+  }
+
+  setStatus(`Archivo ${n} cargado: ${file.name}`, n*30);
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    encoding: 'UTF-8',
+    complete: res => {
+      if (!res.data || res.data.length === 0) {
+        // Try Latin1
+        Papa.parse(file, { header:true, skipEmptyLines:true, encoding:'ISO-8859-1', complete: res2 => {
+          state.parsed[n] = res2.data;
+          checkAndRun();
+        }});
+      } else {
+        state.parsed[n] = res.data;
+        checkAndRun();
+      }
+    }
+  });
+}
+
+function checkAndRun() {
+  const loaded = [1,2,3].filter(n => state.parsed[n] && state.parsed[n].length > 0);
+  if (loaded.length === 3) {
+    setStatus('Calculando scores de criticidad...', 80);
+    setTimeout(runAnalysis, 100);
+  } else {
+    setStatus(`${loaded.length}/3 archivos cargados...`, loaded.length * 30);
+  }
+}
+
+function setStatus(msg, pct) {
+  const bar = document.getElementById('status-bar');
+  bar.style.display='block';
+  document.getElementById('status-msg').textContent = msg;
+  document.getElementById('prog-fill').style.width = pct+'%';
+}
+
+// ============================================================
+// NORMALIZE
+// ============================================================
+function normalizeStock(rows) {
+  const headers = Object.keys(rows[0]||{});
+  const C = {
+    codigo: findCol(headers,'stock','codigo')||headers[0],
+    desc:   findCol(headers,'stock','desc'),
+    stock:  findCol(headers,'stock','en_stock'),
+    costo:  findCol(headers,'stock','costo'),
+  };
+  return rows.map(r => ({
+    codigo: String(r[C.codigo]||'').trim().toUpperCase(),
+    desc:   C.desc ? String(r[C.desc]||'').trim() : '',
+    stock:  parseNum(r[C.stock]),
+    costo:  parseNum(r[C.costo]),
+  })).filter(r => r.codigo);
+}
+
+function normalizeInv(rows) {
+  const headers = Object.keys(rows[0]||{});
+  const C = {
+    codigo: findCol(headers,'inv','codigo')||headers[0],
+    desc:   findCol(headers,'inv','desc'),
+    costo:  findCol(headers,'inv','costo'),
+    dif:    findCol(headers,'inv','diferencia'),
+    imp:    findCol(headers,'inv','imp_dif'),
+    sis:    findCol(headers,'inv','stock_sis'),
+    acl:    findCol(headers,'inv','aclaracion'),
+  };
+  return rows.map(r => ({
+    codigo:    String(r[C.codigo]||'').trim().toUpperCase(),
+    desc:      C.desc ? String(r[C.desc]||'').trim() : '',
+    costo:     parseNum(r[C.costo]),
+    diferencia:parseNum(r[C.dif]),
+    imp_dif:   parseNum(r[C.imp]),
+    stock_sis: parseNum(r[C.sis]),
+    acl:       C.acl ? String(r[C.acl]||'').trim() : '',
+  })).filter(r => r.codigo && r.diferencia !== null);
+}
+
+// ============================================================
+// ANALYSIS ENGINE
+// ============================================================
+function runAnalysis() {
+  const stockNorm = normalizeStock(state.parsed[1]);
+  const inv1Norm  = normalizeInv(state.parsed[2]);
+  const inv2Norm  = normalizeInv(state.parsed[3]);
+
+  const name1 = document.getElementById('name2').value || 'Inventario Anterior';
+  const name2 = document.getElementById('name3').value || 'Inventario Reciente';
+  state.names = {1: name1, 2: name2};
+
+  const stockMap = {}; stockNorm.forEach(r => stockMap[r.codigo] = r);
+  const inv1Map  = {}; inv1Norm.forEach(r  => inv1Map[r.codigo]  = r);
+
+  const allCodigos = new Set([...inv1Norm.map(r=>r.codigo), ...inv2Norm.map(r=>r.codigo)]);
+  const merged = [];
+
+  allCodigos.forEach(cod => {
+    const s  = stockMap[cod] || {};
+    const i1 = inv1Map[cod]  || {};
+    const i2 = inv2Norm.find(r => r.codigo === cod) || {};
+
+    const dif2 = i2.diferencia ?? null;
+    const dif1 = i1.diferencia ?? null;
+    const costo = i2.costo || i1.costo || s.costo || 0;
+    const stock = s.stock ?? i2.stock_sis ?? 0;
+    const desc  = i2.desc || i1.desc || s.desc || cod;
+    const imp   = dif2 !== null ? (i2.imp_dif !== undefined ? Math.abs(i2.imp_dif||0) : Math.abs((dif2||0)*costo)) : 0;
+    const acl   = i2.acl || i1.acl || '';
+
+    const falt2  = dif2 !== null && dif2 < 0;
+    const falt1  = dif1 !== null && dif1 < 0;
+    const reinc  = falt2 && falt1;
+    const empeo  = dif2 !== null && dif1 !== null && dif2 < dif1;
+    const vari   = (dif2??0) - (dif1??0);
+    const pzas   = falt2 ? Math.abs(dif2) : 0;
+
+    if (dif1 === null && dif2 === null) return;
+
+    merged.push({
+      codigo: cod, desc, costo: costo||0, stock: stock||0,
+      imp_abs: imp, dif1: dif1??0, dif2: dif2??0, variacion: vari, pzas,
+      falt2, falt1, reinc, empeo, acl,
+      en_inv2: dif2!==null, en_inv1: dif1!==null,
+    });
+  });
+
+  // SCORING
+  const pens  = merged.map(r => r.falt2 ? r.pzas : Math.abs(r.dif2)*0.3);
+  const imps  = merged.map(r => r.imp_abs);
+  const pzasA = merged.map(r => r.pzas);
+  const nvars = merged.map(r => Math.max(0,-r.variacion));
+
+  const normArr = arr => {
+    const vals = arr.filter(v=>!isNaN(v)&&v!==null);
+    const mn=Math.min(...vals), mx=Math.max(...vals);
+    if(mx===mn) return arr.map(()=>0);
+    return arr.map(v=>(v-mn)/(mx-mn));
+  };
+
+  const n1=normArr(pens), n3=normArr(imps), n4=normArr(pzasA), n7=normArr(nvars);
+
+  merged.forEach((r,i) => {
+    r.score = Math.round((
+      n1[i]*25 + (r.reinc?20:0) + n3[i]*20 + n4[i]*15 +
+      (r.empeo?10:0) + (r.stock>0?5:0) + n7[i]*5
+    )*100)/100;
+
+    if      (r.score>=65){r.crit='A - Crítico'; r.freq='Semanal';    r.resp='Jefe de Almacén'}
+    else if (r.score>=45){r.crit='B - Alto';    r.freq='Quincenal';  r.resp='Coordinador de Inventarios'}
+    else if (r.score>=25){r.crit='C - Medio';   r.freq='Mensual';    r.resp='Auxiliar de Almacén'}
+    else                 {r.crit='D - Bajo';    r.freq='Bimestral';  r.resp='Auxiliar de Almacén'}
+
+    const a = r.acl.toLowerCase();
+    r.causa = a.includes('surtido')?'Error de Surtido':
+              a.includes('recibo')||a.includes('recepcion')?'Error de Recibo':
+              a.includes('merma')?'Merma':
+              a.includes('ubicaj')||a.includes('ubicacion')?'Error de Ubicación':
+              a.includes('traspaso')?'Traspaso no registrado':
+              r.reinc?'Causa Recurrente':r.empeo?'Proceso Deteriorado':'Sin aclaración';
+
+    const j=[];
+    if(r.reinc) j.push(`Reincidente ${name1}+${name2}`);
+    if(r.empeo) j.push(`Empeoró ${Math.abs(r.variacion).toFixed(0)} pzas`);
+    if(r.imp_abs>10000) j.push(`Impacto $${r.imp_abs.toFixed(0)}`);
+    if(r.pzas>50) j.push(`${r.pzas} pzas faltantes`);
+    if(r.stock>500) j.push(`Stock activo: ${r.stock} pzas`);
+    r.just = j.length ? j.join(' | ') : `Nueva incidencia ${name2}`;
+  });
+
+  merged.sort((a,b)=>b.score-a.score);
+  const top100 = merged.slice(0,100).map((r,i)=>({...r,rank:i+1}));
+
+  // STATS
+  const falt2All = merged.filter(r=>r.falt2);
+  const totalImp = falt2All.reduce((s,r)=>s+r.imp_abs,0);
+  const faltSort = [...falt2All].sort((a,b)=>b.imp_abs-a.imp_abs);
+  let cum=0;
+  faltSort.forEach(r=>{cum+=r.imp_abs; r.cum_pct=Math.round(cum/totalImp*1000)/10; r.pct_imp=Math.round(r.imp_abs/totalImp*1000)/10;});
+
+  const stats = {
+    total: merged.length,
+    falt2: falt2All.length,
+    reinc: merged.filter(r=>r.reinc).length,
+    valor: totalImp,
+    mejor: merged.filter(r=>r.falt1&&!r.falt2).length,
+    empeo: merged.filter(r=>r.falt2&&r.empeo&&r.falt1).length,
+    nuevo: merged.filter(r=>r.falt2&&!r.falt1).length,
+    totInv1: inv1Norm.length, totInv2: inv2Norm.length,
+    totStock: stockNorm.length,
+    pareto: faltSort.filter(r=>r.cum_pct<=80).length,
+    valorPareto: faltSort.filter(r=>r.cum_pct<=80).reduce((s,r)=>s+r.imp_abs,0),
+    name1, name2,
+  };
+
+  state.result = { top100, merged, stats, pareto: faltSort };
+  setStatus('Renderizando resultados...', 95);
+  setTimeout(()=>{renderAll(); setStatus('Análisis completo ✓',100);}, 100);
+}
+
+// ============================================================
+// FORMAT HELPERS
+// ============================================================
+const fN  = n => (n===null||n===undefined||isNaN(n))?'—':Number(n).toLocaleString('es-MX');
+const fM  = n => (!n||isNaN(n)||n===0)?'—':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fM0 = n => (!n||isNaN(n))?'—':'$'+Number(n).toLocaleString('es-MX',{maximumFractionDigits:0});
+function dCell(v){
+  if(!v||v===0)return`<td style="color:#5A6475">0</td>`;
+  if(v<0)return`<td class="neg">${fN(v)}</td>`;
+  return`<td class="pos">+${fN(v)}</td>`;
+}
+function critBadge(c){
+  if(c.includes('A'))return`<span class="ba">A-CRÍTICO</span>`;
+  if(c.includes('B'))return`<span class="bb">B-ALTO</span>`;
+  if(c.includes('C'))return`<span class="bc">C-MEDIO</span>`;
+  return`<span class="bd">D-BAJO</span>`;
+}
+function scoreBar(s){
+  const col=s>=65?'#CC0000':s>=45?'#E07B00':s>=25?'#0066CC':'#5A6475';
+  const w=Math.max(3,Math.round(s*0.7));
+  return`<span style="display:inline-flex;align-items:center;gap:4px"><span class="score-bg"><span class="score-fg" style="background:${col};width:${w}px"></span></span>${s.toFixed(1)}</span>`;
+}
+function priorityOf(r){
+  if(r.crit.includes('A'))return'🔴 Inmediata';
+  if(r.crit.includes('B'))return'🟡 Esta semana';
+  if(r.crit.includes('C'))return'🔵 Este mes';
+  return'⚪ Programado';
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderAll(){
+  const {top100, merged, stats, pareto} = state.result;
+  renderKPIs(stats);
+  renderCharts(top100);
+  renderTable('tbody-resumen', top100.slice(0,20), 'resumen');
+  renderTable('tbody-top100', top100, 'top100');
+  renderTable('tbody-matriz', top100, 'matriz');
+  renderComparativo(merged, stats);
+  renderFinanciero(pareto, top100, stats);
+  renderRecs(stats, top100);
+  renderDQ(stats);
+  renderInds(stats);
+  sortableTable('tbl-top100');
+  sortableTable('tbl-pareto');
+  sortableTable('tbl-resumen');
+  drawParetoSVG(pareto);
+
+  document.getElementById('upload-section').style.display='none';
+  document.getElementById('results').style.display='block';
+  ['btn-excel','btn-pdf','btn-reset'].forEach(id=>document.getElementById(id).style.display='inline-block');
+  document.getElementById('hdr-sub').textContent = `${stats.name2} vs ${stats.name1} · ${stats.total} SKUs analizados · ${stats.falt2} con faltante`;
+  document.getElementById('footer-scope').textContent = `${stats.name2} vs ${stats.name1} · ${stats.totInv2} SKUs inv. reciente · ${stats.totInv1} inv. anterior · ${stats.totStock} stock actual`;
+  document.getElementById('status-bar').style.display='none';
+}
+
+function renderKPIs(s){
+  const strip = (id, html) => { const el=document.getElementById(id); if(el) el.innerHTML=html; };
+  const base = `
+    <div class="kpi r"><div class="kpi-lbl">SKUs con Faltante ${s.name2}</div><div class="kpi-val">${s.falt2}</div><div class="kpi-d neg">de ${s.totInv2} en inventario</div></div>
+    <div class="kpi w"><div class="kpi-lbl">Reincidentes</div><div class="kpi-val">${s.reinc}</div><div class="kpi-d neg">⚠ ${s.falt2>0?(s.reinc/s.falt2*100).toFixed(1):0}% de faltantes</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Valor Faltantes</div><div class="kpi-val">${fM0(s.valor)}</div><div class="kpi-d neg">impacto estimado</div></div>
+    <div class="kpi w"><div class="kpi-lbl">Empeoraron</div><div class="kpi-val">${s.empeo}</div><div class="kpi-d neg">vs ${s.name1}</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Mejoraron</div><div class="kpi-val">${s.mejor}</div><div class="kpi-d pos">▲ sin faltante en ${s.name2}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Pareto 80% (SKUs)</div><div class="kpi-val">${s.pareto}</div><div class="kpi-d neg">generan ${fM0(s.valorPareto)}</div></div>`;
+  strip('kpi-strip', base); strip('kpi-strip2', base);
+  strip('kpi-strip3', `
+    <div class="kpi r"><div class="kpi-lbl">Faltantes ${s.name1}</div><div class="kpi-val">${merged_falt1(state.merged||state.result.merged)}</div><div class="kpi-d neu">inventario anterior</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Faltantes ${s.name2}</div><div class="kpi-val">${s.falt2}</div><div class="kpi-d pos">▲ mejora significativa</div></div>
+    <div class="kpi w"><div class="kpi-lbl">Reincidentes</div><div class="kpi-val">${s.reinc}</div><div class="kpi-d neg">en ambos inventarios</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Mejoraron</div><div class="kpi-val">${s.mejor}</div><div class="kpi-d pos">▲ resueltos</div></div>
+    <div class="kpi w"><div class="kpi-lbl">Empeoraron</div><div class="kpi-val">${s.empeo}</div><div class="kpi-d neg">mayor dif. que ant.</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Nuevos ${s.name2}</div><div class="kpi-val">${s.nuevo}</div><div class="kpi-d neg">1ª incidencia</div></div>`);
+  strip('kpi-strip4', `
+    <div class="kpi r"><div class="kpi-lbl">Impacto Total</div><div class="kpi-val">${fM0(s.valor)}</div><div class="kpi-d neg">faltantes ${s.name2}</div></div>
+    <div class="kpi w"><div class="kpi-lbl">Pareto 80%</div><div class="kpi-val">${s.pareto} SKUs</div><div class="kpi-d neg">= ${fM0(s.valorPareto)}</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Mayor Impacto</div><div class="kpi-val">${s.falt2>0?fM0(state.result.pareto[0]?.imp_abs||0):'—'}</div><div class="kpi-d neg">SKU #1 en pareto</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Promedio/SKU</div><div class="kpi-val">${s.falt2>0?fM0(s.valor/s.falt2):'—'}</div><div class="kpi-d neg">faltantes ${s.name2}</div></div>
+    <div class="kpi"><div class="kpi-lbl">% Concentración Top 5</div><div class="kpi-val">${calcTop5pct()}%</div><div class="kpi-d neg">del impacto total</div></div>`);
+}
+
+function merged_falt1(m){ return m ? m.filter(r=>r.falt1).length : '—'; }
+function calcTop5pct(){
+  const p=state.result.pareto; if(!p||!p.length) return 0;
+  const tot=p.reduce((s,r)=>s+r.imp_abs,0); if(!tot) return 0;
+  return (p.slice(0,5).reduce((s,r)=>s+r.imp_abs,0)/tot*100).toFixed(1);
+}
+
+function renderTable(id, data, mode) {
+  const tb = document.getElementById(id); if(!tb) return;
+  let html='';
+  data.forEach(r => {
+    const base=`<td style="font-weight:700;color:#1A2B4A">${r.rank}</td>
+      <td style="font-size:10px;color:#0066CC;font-weight:600">${r.codigo}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.desc}">${r.desc}</td>`;
+
+    if(mode==='resumen'){
+      html+=`<tr>${base}
+        <td>${critBadge(r.crit)}</td><td>${scoreBar(r.score)}</td>
+        ${dCell(r.dif1)}${dCell(r.dif2)}${dCell(r.variacion)}
+        <td class="${r.pzas>0?'neg':''}">${fN(r.pzas)}</td>
+        <td>${r.imp_abs>0?fM(r.imp_abs):'—'}</td>
+        <td>${r.reinc?'<span class="br">SÍ</span>':'<span style="color:#5A6475">No</span>'}</td>
+        <td><strong>${r.freq}</strong></td></tr>`;
+    } else if(mode==='top100'){
+      html+=`<tr>${base}
+        <td>${fN(r.stock)}</td>${dCell(r.dif1)}${dCell(r.dif2)}${dCell(r.variacion)}
+        <td class="${r.pzas>0?'neg':''}">${fN(r.pzas)}</td>
+        <td>${r.costo>0?fM(r.costo):'—'}</td>
+        <td>${r.imp_abs>0?fM(r.imp_abs):'—'}</td>
+        <td>${r.reinc?'<span class="br">SÍ</span>':'<span style="color:#5A6475">No</span>'}</td>
+        <td>${scoreBar(r.score)}</td><td>${critBadge(r.crit)}</td>
+        <td><strong>${r.freq}</strong></td>
+        <td style="font-size:10px;color:#5A6475">${r.resp}</td>
+        <td style="font-size:10px">${r.causa}</td></tr>`;
+    } else if(mode==='matriz'){
+      html+=`<tr><td style="font-weight:700">${r.rank}</td>
+        <td style="font-size:10px;color:#0066CC;font-weight:600">${r.codigo}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.desc}">${r.desc}</td>
+        <td>${critBadge(r.crit)}</td><td><strong>${r.freq}</strong></td>
+        <td style="font-size:10px">${r.resp}</td><td>${priorityOf(r)}</td>
+        <td style="font-size:10px">${r.causa}</td>
+        <td style="font-size:10px;color:#5A6475;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.just}">${r.just}</td></tr>`;
+    }
+  });
+  tb.innerHTML=html;
+
+  // Freq summary
+  if(mode==='matriz'){
+    const dist={A:0,B:0,C:0,D:0};
+    data.forEach(r=>{if(r.crit.includes('A'))dist.A++;else if(r.crit.includes('B'))dist.B++;else if(r.crit.includes('C'))dist.C++;else dist.D++;});
+    const fs=document.getElementById('freq-summary');
+    if(fs) fs.innerHTML=`
+      <div class="card"><div class="sec" style="margin-top:0">🔴 A-Crítico Semanal</div><table>
+        <tr><td>SKUs</td><td><strong>${dist.A}</strong></td></tr>
+        <tr><td>Score</td><td>≥65</td></tr><tr><td>Owner</td><td>Jefe Almacén</td></tr></table></div>
+      <div class="card"><div class="sec" style="margin-top:0">🟡 B-Alto Quincenal</div><table>
+        <tr><td>SKUs</td><td><strong>${dist.B}</strong></td></tr>
+        <tr><td>Score</td><td>45-64</td></tr><tr><td>Owner</td><td>Coordinador Inv.</td></tr></table></div>
+      <div class="card"><div class="sec" style="margin-top:0">🔵 C-Medio Mensual</div><table>
+        <tr><td>SKUs</td><td><strong>${dist.C}</strong></td></tr>
+        <tr><td>Score</td><td>25-44</td></tr><tr><td>Owner</td><td>Auxiliar Almacén</td></tr></table></div>`;
+  }
+}
+
+function renderCharts(top100){
+  // Causa raiz
+  const causas={};
+  top100.forEach(r=>{ causas[r.causa]=(causas[r.causa]||0)+1; });
+  const cSort=Object.entries(causas).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxC=cSort[0]?.[1]||1;
+  const CCOLS=['#CC0000','#E07B00','#0066CC','#5A6475','#007A3D','#1A2B4A'];
+  let svgC=`<div class="sec" style="margin-top:0">Causa Raíz Probable – Top 100</div><svg viewBox="0 0 440 ${30+cSort.length*32}" style="width:100%;height:${30+cSort.length*32}px">`;
+  cSort.forEach(([k,v],i)=>{
+    const w=Math.round((v/maxC)*260); const y=i*32+10;
+    svgC+=`<rect x="140" y="${y}" width="${w}" height="22" fill="${CCOLS[i]}"/>
+      <text x="136" y="${y+15}" text-anchor="end" font-size="11" font-family="Segoe UI,Arial" fill="#5A6475">${k}</text>
+      <text x="${142+w}" y="${y+15}" font-size="11" font-family="Segoe UI,Arial" fill="#111827" font-weight="600"> ${v}</text>`;
+  });
+  svgC+=`</svg>`;
+  document.getElementById('chart-causa').innerHTML=svgC;
+
+  // Dist
+  const dist={A:0,B:0,C:0,D:0};
+  top100.forEach(r=>{if(r.crit.includes('A'))dist.A++;else if(r.crit.includes('B'))dist.B++;else if(r.crit.includes('C'))dist.C++;else dist.D++;});
+  const maxD=Math.max(dist.A,dist.B,dist.C,dist.D,1);
+  const dData=[['A-Crítico',dist.A,'#CC0000','Semanal'],['B-Alto',dist.B,'#E07B00','Quincenal'],['C-Medio',dist.C,'#0066CC','Mensual'],['D-Bajo',dist.D,'#5A6475','Bimestral']];
+  let svgD=`<div class="sec" style="margin-top:0">Distribución Criticidad – Top 100</div><svg viewBox="0 0 440 180" style="width:100%;height:180px">`;
+  dData.forEach(([lbl,val,col,freq],i)=>{
+    const barH=val>0?Math.max(6,Math.round((val/maxD)*100)):0; const x=40+i*100; const y=120-barH;
+    svgD+=`<rect x="${x}" y="${y}" width="70" height="${barH}" fill="${col}"/>
+      <text x="${x+35}" y="${y-4}" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial" fill="${col}" font-weight="700">${val}</text>
+      <text x="${x+35}" y="136" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial" fill="#5A6475">${lbl}</text>
+      <text x="${x+35}" y="150" text-anchor="middle" font-size="9" font-family="Segoe UI,Arial" fill="#9CA3AF">${freq}</text>`;
+  });
+  svgD+=`</svg>`;
+  document.getElementById('chart-dist').innerHTML=svgD;
+}
+
+function renderComparativo(merged, stats){
+  const reinc = merged.filter(r=>r.reinc).sort((a,b)=>b.imp_abs-a.imp_abs).slice(0,25);
+  const empeo = merged.filter(r=>r.falt2&&r.empeo&&r.falt1).sort((a,b)=>a.variacion-b.variacion).slice(0,15);
+  const nuevo = merged.filter(r=>r.falt2&&!r.falt1).sort((a,b)=>b.imp_abs-a.imp_abs).slice(0,20);
+  const mejor = merged.filter(r=>r.falt1&&!r.falt2).sort((a,b)=>a.dif1-b.dif1).slice(0,15);
+
+  const fill=(id,rows,cols)=>{
+    const tb=document.getElementById(id); if(!tb) return;
+    tb.innerHTML=rows.map(r=>`<tr>${cols(r)}</tr>`).join('');
+  };
+  fill('tbody-reinc', reinc, r=>`
+    <td style="font-size:10px;color:#CC0000;font-weight:600">${r.codigo}</td>
+    <td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+    ${dCell(r.dif1)}${dCell(r.dif2)}${dCell(r.variacion)}
+    <td class="neg">${fM(r.imp_abs)}</td>`);
+  fill('tbody-empeo', empeo, r=>`
+    <td style="font-size:10px;color:#E07B00;font-weight:600">${r.codigo}</td>
+    <td style="font-size:10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+    ${dCell(r.dif1)}${dCell(r.dif2)}${dCell(r.variacion)}`);
+  fill('tbody-nuevos', nuevo, r=>`
+    <td style="font-size:10px;color:#0066CC;font-weight:600">${r.codigo}</td>
+    <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+    ${dCell(r.dif2)}<td class="neg">${fM(r.imp_abs)}</td>`);
+  fill('tbody-mejora', mejor, r=>`
+    <td style="font-size:10px;color:#007A3D;font-weight:600">${r.codigo}</td>
+    <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+    ${dCell(r.dif1)}<td class="pos">✓ 0</td>`);
+}
+
+function renderFinanciero(pareto, top100, stats){
+  const critMap={}; top100.forEach(r=>critMap[r.codigo]=r.crit);
+  const tot = pareto.reduce((s,r)=>s+r.imp_abs,0)||1;
+  document.getElementById('tbody-pareto').innerHTML = pareto.slice(0,30).map((r,i)=>`<tr>
+    <td style="font-weight:700">${i+1}</td>
+    <td style="font-size:10px;color:#CC0000;font-weight:600">${r.codigo}</td>
+    <td style="font-size:10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+    <td class="neg"><strong>${fM(r.imp_abs)}</strong></td>
+    <td>${(r.imp_abs/tot*100).toFixed(1)}%</td>
+    <td><strong>${r.cum_pct}%</strong>${r.cum_pct<=80?'<span style="font-size:9px;color:#CC0000;margin-left:4px">◀80%</span>':''}</td>
+    <td>${critMap[r.codigo]?critBadge(critMap[r.codigo]):'<span style="color:#5A6475;font-size:9px">—</span>'}</td>
+  </tr>`).join('');
+}
+
+function drawParetoSVG(pareto){
+  const svg=document.getElementById('pareto-svg'); if(!svg) return;
+  const data=pareto.slice(0,20); if(!data.length) return;
+  const maxI=Math.max(...data.map(d=>d.imp_abs));
+  const W=1200,H=180,pL=10,pR=40,pT=22,pB=32;
+  const cW=W-pL-pR, cH=H-pT-pB;
+  const bW=Math.floor(cW/data.length)-2;
+  let html='';
+  data.forEach((d,i)=>{
+    const x=pL+i*(bW+2), bh=Math.max(2,Math.round((d.imp_abs/maxI)*cH));
+    const y=pT+cH-bh, col=(d.cum_pct||0)<=80?'#CC0000':'#5A6475';
+    html+=`<rect x="${x}" y="${y}" width="${bW}" height="${bh}" fill="${col}"/>`;
+    if(i<12) html+=`<text x="${x+bW/2}" y="${H-1}" text-anchor="end" font-size="7" font-family="Segoe UI,Arial" fill="#5A6475" transform="rotate(-40,${x+bW/2},${H-1})">${d.codigo.substring(0,14)}</text>`;
+  });
+  let pts='';
+  data.forEach((d,i)=>{ const x=pL+i*(bW+2)+bW/2; const y=pT+cH-((d.cum_pct||0)/100)*cH; pts+=`${i===0?'':'L'}${x},${y}`; });
+  if(pts) html+=`<polyline points="${pts.replace(/L/g,' ')}" fill="none" stroke="#0066CC" stroke-width="2"/>`;
+  const y80=pT+cH-0.8*cH;
+  html+=`<line x1="${pL}" y1="${y80}" x2="${W-pR}" y2="${y80}" stroke="#E07B00" stroke-width="1" stroke-dasharray="4,3"/>`;
+  html+=`<text x="${W-pR+2}" y="${y80+4}" font-size="9" font-family="Segoe UI,Arial" fill="#E07B00" font-weight="700">80%</text>`;
+  html+=`<rect x="10" y="5" width="8" height="8" fill="#CC0000"/><text x="22" y="13" font-size="9" font-family="Segoe UI,Arial" fill="#111827">Pareto 80%</text>
+    <rect x="110" y="5" width="8" height="8" fill="#5A6475"/><text x="122" y="13" font-size="9" font-family="Segoe UI,Arial" fill="#111827">Resto</text>
+    <line x1="200" y1="9" x2="220" y2="9" stroke="#0066CC" stroke-width="2"/><text x="224" y="13" font-size="9" font-family="Segoe UI,Arial" fill="#111827">% Acumulado</text>`;
+  svg.innerHTML=html;
+}
+
+function renderRecs(stats, top100){
+  const topSku = top100[0];
+  const reinc = top100.filter(r=>r.reinc).length;
+  const surtido = top100.filter(r=>r.causa.includes('Surtido')).length;
+  const rl=document.getElementById('rec-list'); if(!rl) return;
+  rl.innerHTML=`
+    <li class="urg">🔴 <strong>Acción Inmediata:</strong> ${topSku?`Iniciar conteo físico del SKU ${topSku.codigo} (${topSku.pzas} pzas faltantes, ${fM(topSku.imp_abs)} impacto). Validar causa: ${topSku.causa}. Plazo máximo: 5 días hábiles.`:'Verificar los SKUs con score máximo del Top 100.'}</li>
+    <li class="urg">🔴 <strong>Control de Reincidentes (${reinc} SKUs):</strong> Los ${reinc} SKUs reincidentes entre ${stats.name1} y ${stats.name2} requieren análisis de causa raíz formal. El patrón sugiere fallas sistémicas. Implementar verificación doble (pick + pack) para estos códigos de forma inmediata.</li>
+    <li class="wat">🟡 <strong>Error de Surtido (${surtido} SKUs):</strong> ${surtido} SKUs del Top 100 presentan errores de surtido. Validar que el proceso de picking incluya escaneo de código de barras. Revisar si los SKUs afectados comparten zona física de almacén.</li>
+    <li class="wat">🟡 <strong>Nuevos Faltantes ${stats.name2} (${stats.nuevo} SKUs):</strong> ${stats.nuevo} SKUs con primera incidencia. Investigar si son SKUs nuevos, cambios de ubicación o errores de traspaso. Priorizar los de mayor impacto económico.</li>
+    <li class="wat">🟡 <strong>Valor Total en Riesgo (${fM0(stats.valor)}):</strong> El Pareto indica que ${stats.pareto} SKUs concentran el 80% del impacto (${fM0(stats.valorPareto)}). Enfocar recursos de conteo en estos códigos primero.</li>
+    <li class="opp">🟢 <strong>Aprovechamiento de Mejora:</strong> ${stats.mejor} SKUs mejoraron de ${stats.name1} a ${stats.name2}. Documentar qué controles se aplicaron y estandarizarlos para los códigos que siguen con diferencias.</li>
+    <li class="opp">🟢 <strong>Gobernanza de Conteo Cíclico:</strong> Establecer comité mensual de revisión de exactitud. Publicar KPIs: exactitud por SKU, valor recuperado, % reincidencia. Meta: reducir faltantes a &lt;30 SKUs en siguiente inventario.</li>`;
+}
+
+function renderDQ(stats){
+  const conf = stats.falt2/stats.totInv2 < 0.3 ? 0.82 : 0.74;
+  const confColor = conf>=0.85?'#007A3D':conf>=0.70?'#E07B00':'#CC0000';
+  const confLbl   = conf>=0.85?'ALTA':'MEDIA';
+  document.getElementById('dq-badge').textContent=confLbl;
+  document.getElementById('dq-badge').style.background=confColor;
+  document.getElementById('dq-badge').style.color='#fff';
+  document.getElementById('dq-body').innerHTML=`<table>
+    <tr><td>Registros Inventario ${state.names[2]}</td><td><strong>${stats.totInv2}</strong></td>
+        <td>Stock Actual</td><td><strong>${stats.totStock}</strong></td></tr>
+    <tr><td>Registros Inventario ${state.names[1]}</td><td><strong>${stats.totInv1}</strong></td>
+        <td>SKUs analizados total</td><td><strong>${stats.total}</strong></td></tr>
+    <tr><td>Score de confianza</td><td><strong>${conf}</strong></td>
+        <td>Limitación</td><td>Clasificación ABC no en archivos; inferida por impacto económico</td></tr>
+  </table>`;
+}
+
+function renderInds(stats){
+  const acc = stats.totInv2>0?(1-(stats.falt2/stats.totInv2))*100 : 0;
+  const rein_pct = stats.falt2>0?(stats.reinc/stats.falt2*100) : 0;
+  document.getElementById('ind-grid').innerHTML=`
+    <div class="ind-card"><div class="in">Exactitud Inv. (SKU)</div><div class="iv">${acc.toFixed(1)}%</div><div class="id">${stats.falt2} de ${stats.totInv2} con dif.</div></div>
+    <div class="ind-card"><div class="in">% Reincidencia</div><div class="iv">${rein_pct.toFixed(1)}%</div><div class="id">${stats.reinc} de ${stats.falt2} faltantes</div></div>
+    <div class="ind-card"><div class="in">Dif. Absoluta Acum.</div><div class="iv">${fM0(stats.valor)}</div><div class="id">faltantes ${stats.name2}</div></div>
+    <div class="ind-card"><div class="in">Pareto 80% (SKUs)</div><div class="iv">${stats.pareto} SKUs</div><div class="id">generan 80% del impacto</div></div>
+    <div class="ind-card"><div class="in">SKUs Plan Cíclico</div><div class="iv">100 SKUs</div><div class="id">Top 100 priorizados</div></div>`;
+}
+
+// ============================================================
+// SORT
+// ============================================================
+function sortableTable(id){
+  const tbl=document.getElementById(id); if(!tbl) return;
+  tbl.querySelectorAll('th[data-s]').forEach((th,idx)=>{
+    th.style.cursor='pointer';
+    th.addEventListener('click',()=>{
+      const rows=[...tbl.querySelectorAll('tbody tr')];
+      const asc=th.dataset.asc!=='true'; th.dataset.asc=asc;
+      rows.sort((a,b)=>{
+        const av=a.cells[idx].textContent.trim();
+        const bv=b.cells[idx].textContent.trim();
+        const an=parseFloat(av.replace(/[,$%▲▼+SÍNo ]/g,'')),bn=parseFloat(bv.replace(/[,$%▲▼+SÍNo ]/g,''));
+        if(!isNaN(an)&&!isNaN(bn)) return asc?an-bn:bn-an;
+        return asc?av.localeCompare(bv,'es'):bv.localeCompare(av,'es');
+      });
+      rows.forEach(r=>tbl.querySelector('tbody').appendChild(r));
+      tbl.querySelectorAll('th[data-s]').forEach(h=>{h.textContent=h.textContent.replace(/ [▲▼]$/,'')});
+      th.textContent+=asc?' ▲':' ▼';
+    });
+  });
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function showTab(name, el){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+}
+
+// ============================================================
+// DOWNLOAD EXCEL
+// ============================================================
+function downloadExcel(){
+  if(!state.result) return;
+  const {top100, merged, stats, pareto} = state.result;
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Top 100
+  const s1data = [['#','SKU','Descripción','Stock Actual','Dif.'+stats.name1,'Dif.'+stats.name2,'Variación','Pzas Faltantes','Costo Unitario','Impacto $','Reincidente','Score','Criticidad','Frecuencia','Responsable','Causa Raíz','Justificación']];
+  top100.forEach(r=>s1data.push([r.rank,r.codigo,r.desc,r.stock||0,r.dif1,r.dif2,r.variacion,r.pzas,r.costo||0,r.imp_abs,r.reinc?'SÍ':'No',r.score,r.crit,r.freq,r.resp,r.causa,r.just]));
+  const ws1=XLSX.utils.aoa_to_sheet(s1data);
+  ws1['!cols']=[{wch:5},{wch:25},{wch:50},{wch:12},{wch:12},{wch:12},{wch:12},{wch:14},{wch:14},{wch:16},{wch:10},{wch:8},{wch:15},{wch:12},{wch:25},{wch:22},{wch:50}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Top 100 Criticidad');
+
+  // Sheet 2: Reincidentes
+  const reinc=merged.filter(r=>r.reinc).sort((a,b)=>b.imp_abs-a.imp_abs);
+  const s2=[['SKU','Descripción','Dif.'+stats.name1,'Dif.'+stats.name2,'Variación','Impacto $','Causa Raíz']];
+  reinc.forEach(r=>s2.push([r.codigo,r.desc,r.dif1,r.dif2,r.variacion,r.imp_abs,r.causa]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),'Reincidentes');
+
+  // Sheet 3: Pareto
+  const s3=[['#','SKU','Descripción','Impacto $','% del Total','% Acumulado']];
+  pareto.slice(0,50).forEach((r,i)=>s3.push([i+1,r.codigo,r.desc,r.imp_abs,r.pct_imp,r.cum_pct]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),'Pareto Financiero');
+
+  // Sheet 4: Nuevos
+  const nuevo=merged.filter(r=>r.falt2&&!r.falt1).sort((a,b)=>b.imp_abs-a.imp_abs);
+  const s4=[['SKU','Descripción','Dif.'+stats.name2,'Impacto $','Causa Raíz']];
+  nuevo.forEach(r=>s4.push([r.codigo,r.desc,r.dif2,r.imp_abs,r.causa]));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s4),'Nuevos Faltantes');
+
+  // Sheet 5: Resumen
+  const s5=[['Métrica','Valor'],['SKUs Analizados',stats.total],['SKUs con Faltante '+stats.name2,stats.falt2],['Reincidentes',stats.reinc],['Valor Faltantes $',stats.valor.toFixed(2)],['Mejoraron',stats.mejor],['Empeoraron',stats.empeo],['Nuevos Faltantes',stats.nuevo],['Pareto 80% (SKUs)',stats.pareto],['Valor Pareto 80% $',stats.valorPareto.toFixed(2)]];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s5),'Resumen Ejecutivo');
+
+  const ts=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`Top100_Conteo_Ciclico_${ts}.xlsx`);
+}
+
+// ============================================================
+// DOWNLOAD PDF (via print)
+// ============================================================
+function downloadPDF(){
+  document.body.classList.add('print-mode');
+  window.print();
+  setTimeout(()=>document.body.classList.remove('print-mode'),500);
+}
+
+// ============================================================
+// RESET
+// ============================================================
+function resetTool(){
+  state.files={1:null,2:null,3:null}; state.parsed={}; state.result=null;
+  [1,2,3].forEach(n=>{
+    document.getElementById('fn'+n).textContent='Sin archivo';
+    const dz=document.getElementById('dz'+n);
+    dz.classList.remove('loaded'); dz.querySelector('.dz-icon').textContent=n===1?'🗄️':n===2?'📋':'📊';
+    const fi=document.getElementById('fi'+n); if(fi) fi.value='';
+  });
+  document.getElementById('upload-section').style.display='block';
+  document.getElementById('results').style.display='none';
+  document.getElementById('status-bar').style.display='none';
+  ['btn-excel','btn-pdf','btn-reset'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('hdr-sub').textContent='Carga tus 3 archivos CSV para generar el análisis · Herramienta dinámica y reutilizable';
+}
+
+// ============================================================
+// CSV TEMPLATES
+// ============================================================
+function downloadTemplate(type){
+  let csv,name;
+  if(type===1){
+    csv='Codigo,Descripcion,En_Stock,Solicitado,Costo_Unitario,Almacen,Familia,Clasificacion_ABC,Ubicacion\n';
+    csv+='PROD001,Cargador USB Tipo C 65W Negro,150,10,289.50,ALM-A,Cargadores,A,A1-01\n';
+    csv+='PROD002,Audifonos TWS Bluetooth Negro,200,5,189.00,ALM-A,Audio,B,A2-05\n';
+    csv+='PROD003,Protector Pantalla iPhone 16 Pro,500,20,89.00,ALM-B,Accesorios,C,B1-10\n';
+    name='Plantilla_Stock_Actual.csv';
+  } else {
+    csv='Codigo,Descripcion,Costo_Unitario,Stock_Sistema,Importe_Sistema,Diferencia,Importe_Diferencia,Diferencia_Auditoria,Importe_Auditoria,Aclaracion,Tipo_Ajuste,Codigo_Barras,Ubicacion,Responsable_Conteo\n';
+    csv+='PROD001,Cargador USB Tipo C 65W Negro,289.50,150,43425.00,-5,-1447.50,-5,-1447.50,Error de surtido en picking,Salida,7501234567890,A1-01,Juan Pérez\n';
+    csv+='PROD002,Audifonos TWS Bluetooth Negro,189.00,200,37800.00,10,1890.00,10,1890.00,Sobrante detectado en conteo físico,Entrada,7509876543210,A2-05,María López\n';
+    csv+='PROD003,Protector Pantalla iPhone 16 Pro,89.00,500,44500.00,0,0.00,0,0.00,,Ninguno,7503456789012,B1-10,Juan Pérez\n';
+    name='Plantilla_Inventario.csv';
+  }
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+}
+</script>
+</body>
+</html>
